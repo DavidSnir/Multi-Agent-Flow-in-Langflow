@@ -1,0 +1,66 @@
+services:
+  postgres:
+    image: postgres:16-alpine
+    environment:
+      POSTGRES_DB: support_db
+      POSTGRES_USER: support_admin
+      POSTGRES_PASSWORD: ${SUPPORT_DB_ADMIN_PASSWORD:?Set SUPPORT_DB_ADMIN_PASSWORD in .env}
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U support_admin -d support_db"]
+      interval: 5s
+      timeout: 5s
+      retries: 12
+      start_period: 10s
+    volumes:
+      - support_postgres_data:/var/lib/postgresql/data
+    networks:
+      - jeen_part3
+    restart: unless-stopped
+
+  langflow:
+    image: langflowai/langflow:1.11.1
+    depends_on:
+      postgres:
+        condition: service_healthy
+    ports:
+      - "7860:7860"
+    environment:
+      LANGFLOW_HOST: 0.0.0.0
+      LANGFLOW_PORT: 7860
+      LANGFLOW_DATABASE_URL: sqlite:////app/langflow/langflow.db
+      LANGFLOW_SUPERUSER: ${LANGFLOW_SUPERUSER}
+      LANGFLOW_SUPERUSER_PASSWORD: ${LANGFLOW_SUPERUSER_PASSWORD}
+      LANGFLOW_SECRET_KEY: ${LANGFLOW_SECRET_KEY}
+      LANGFLOW_API_KEY: ${LANGFLOW_API_KEY}
+      LANGFLOW_STORE_ENVIRONMENT_VARIABLES: "true"
+      LANGFLOW_FALLBACK_TO_ENV_VAR: "true"
+      LANGFLOW_VARIABLES_TO_GET_FROM_ENVIRONMENT: GOOGLE_API_KEY,SUPPORT_DB_URL,SUPPORT_TEAM_EMAIL,GMAIL_CLIENT_ID,GMAIL_CLIENT_SECRET,GMAIL_REFRESH_TOKEN
+      GOOGLE_API_KEY: ${GOOGLE_API_KEY}
+      SUPPORT_DB_READER_PASSWORD: ${SUPPORT_DB_READER_PASSWORD}
+      SUPPORT_DB_URL: ${SUPPORT_DB_URL}
+      SUPPORT_TEAM_EMAIL: ${SUPPORT_TEAM_EMAIL}
+      GMAIL_CLIENT_ID: ${GMAIL_CLIENT_ID}
+      GMAIL_CLIENT_SECRET: ${GMAIL_CLIENT_SECRET}
+      GMAIL_REFRESH_TOKEN: ${GMAIL_REFRESH_TOKEN}
+    healthcheck:
+      test:
+        - CMD-SHELL
+        - >-
+          python -c "import urllib.request; urllib.request.urlopen('http://localhost:7860/api/v1/version', timeout=3)"
+      interval: 10s
+      timeout: 5s
+      retries: 30
+      start_period: 90s
+    volumes:
+      - langflow_data:/app/langflow
+    networks:
+      - jeen_part3
+    restart: unless-stopped
+
+networks:
+  jeen_part3:
+    driver: bridge
+
+volumes:
+  langflow_data:
+  support_postgres_data:

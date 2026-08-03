@@ -1,0 +1,11 @@
+{
+  "intent": "string",
+  "route": "direct_response | analysis | human_handoff | clarification",
+  "required_agents": ["analysis", "response"],
+  "response_mode": "orchestrator | template | response_agent",
+  "response": null,
+  "required_tools": [],
+  "required_context": [],
+  "missing_information": [],
+  "routing_reason": "short internal explanation"
+}

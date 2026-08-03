@@ -1,0 +1,18 @@
+.env
+.env.*
+!.env.example
+
+# Local credentials and generated runtime files
+credentials.json
+client_secret*.json
+opencode.json
+*.log
+.DS_Store
+
+# Python and test caches
+__pycache__/
+.pytest_cache/
+
+# Editor settings
+.idea/
+.vscode/
