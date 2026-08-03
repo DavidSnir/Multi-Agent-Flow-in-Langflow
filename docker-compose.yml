@@ -36,12 +36,15 @@ services:
     restart: "no"
 
   langflow:
-    image: langflowai/langflow:1.11.1
+    build:
+      context: .
+      dockerfile: docker/langflow/Dockerfile
+    image: jeen-langflow:1.11.1-stage1
     depends_on:
       support-db-init:
         condition: service_completed_successfully
     ports:
-      - "7860:7860"
+      - "${LANGFLOW_HOST_PORT:-7860}:7860"
     environment:
       LANGFLOW_HOST: 0.0.0.0
       LANGFLOW_PORT: 7860
@@ -50,11 +53,14 @@ services:
       LANGFLOW_SUPERUSER_PASSWORD: ${LANGFLOW_SUPERUSER_PASSWORD}
       LANGFLOW_SECRET_KEY: ${LANGFLOW_SECRET_KEY}
       LANGFLOW_API_KEY: ${LANGFLOW_API_KEY}
+      LANGFLOW_API_KEY_SOURCE: env
+      LANGFLOW_COMPONENTS_PATH: /app/custom_components
+      LANGFLOW_SSRF_ALLOWED_HOSTS: postgres
+      PYTHONPATH: /app/custom_components
       LANGFLOW_STORE_ENVIRONMENT_VARIABLES: "true"
       LANGFLOW_FALLBACK_TO_ENV_VAR: "true"
       LANGFLOW_VARIABLES_TO_GET_FROM_ENVIRONMENT: GOOGLE_API_KEY,SUPPORT_DB_URL,SUPPORT_TEAM_EMAIL,GMAIL_CLIENT_ID,GMAIL_CLIENT_SECRET,GMAIL_REFRESH_TOKEN
       GOOGLE_API_KEY: ${GOOGLE_API_KEY}
-      SUPPORT_DB_READER_PASSWORD: ${SUPPORT_DB_READER_PASSWORD}
       SUPPORT_DB_URL: ${SUPPORT_DB_URL}
       SUPPORT_TEAM_EMAIL: ${SUPPORT_TEAM_EMAIL}
       GMAIL_CLIENT_ID: ${GMAIL_CLIENT_ID}
@@ -71,6 +77,10 @@ services:
       start_period: 90s
     volumes:
       - langflow_data:/app/langflow
+      - ./custom_components:/app/custom_components:ro
+      - ./scripts:/app/stage1-scripts:ro
+      - ./flows:/app/flows
+      - ./projects:/app/projects
     networks:
       - jeen_part3
     restart: unless-stopped

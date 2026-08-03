@@ -4,7 +4,199 @@
   "data": {
     "nodes": [
       {
-        "id": "ChatInput-a2013556-b352-4571-8572-94809288df6a",
+        "id": "SQLComponent-5adcab89-5fcb-4f52-8ea7-87e90c160333",
+        "type": "genericNode",
+        "position": {
+          "x": 1800,
+          "y": 50
+        },
+        "data": {
+          "type": "SQLComponent",
+          "node": {
+            "template": {
+              "_type": "Component",
+              "code": {
+                "type": "code",
+                "required": true,
+                "placeholder": "",
+                "list": false,
+                "show": true,
+                "multiline": true,
+                "value": "from sqlalchemy import create_engine, text\n\nfrom lfx.custom.custom_component.component import Component\nfrom lfx.io import MultilineInput, Output, SecretStrInput\nfrom lfx.schema.data import Data\nfrom lfx.utils.ssrf_protection import validate_connector_database_url_for_ssrf\n\nfrom support_runtime.sql_policy import QueryPolicyError, validate_support_query\n\n\nclass SQLComponent(Component):\n    display_name = \"Support Requests SQL\"\n    description = \"Safely reads approved fields from the support_requests table.\"\n    name = \"SQLComponent\"\n    icon = \"database\"\n\n    inputs = [\n        SecretStrInput(name=\"database_url\", display_name=\"Database URL\", required=True),\n        MultilineInput(\n            name=\"query\",\n            display_name=\"SQL Query\",\n            required=True,\n            tool_mode=True,\n            info=\"One policy-compliant SELECT statement against support_requests.\",\n        ),\n    ]\n\n    outputs = [\n        Output(display_name=\"Support Request Result\", name=\"run_sql_query\", method=\"run_sql_query\"),\n    ]\n\n    @staticmethod\n    def _result(*, succeeded, records_found, failure_category, safe_explanation, records=None):\n        return {\n            \"succeeded\": succeeded,\n            \"records_found\": records_found,\n            \"failure_category\": failure_category,\n            \"handoff_recommended\": False,\n            \"safe_explanation\": safe_explanation,\n            \"records\": records or [],\n        }\n\n    def run_sql_query(self) -> Data:\n        try:\n            validated = validate_support_query(self.query)\n        except QueryPolicyError:\n            result = self._result(\n                succeeded=False,\n                records_found=False,\n                failure_category=\"query_policy_rejected\",\n                safe_explanation=\"The data request could not be run because it does not meet the read-only query policy.\",\n            )\n            self.status = result\n            return Data(data=result)\n\n        try:\n            validate_connector_database_url_for_ssrf(self.database_url)\n            engine = create_engine(\n                self.database_url,\n                pool_pre_ping=True,\n                connect_args={\"connect_timeout\": 3},\n            )\n            with engine.connect() as connection:\n                rows = [dict(row) for row in connection.execute(text(validated.sql)).mappings().all()]\n        except Exception:\n            result = self._result(\n                succeeded=False,\n                records_found=False,\n                failure_category=\"database_query_failed\",\n                safe_explanation=\"Support request data is temporarily unavailable. Please try again.\",\n            )\n            self.status = result\n            return Data(data=result)\n\n        result = self._result(\n            succeeded=True,\n            records_found=bool(rows),\n            failure_category=None,\n            safe_explanation=(\n                \"Support request data was retrieved.\"\n                if rows\n                else \"No matching support requests were found.\"\n            ),\n            records=rows,\n        )\n        self.status = result\n        return Data(data=result)\n",
+                "fileTypes": [],
+                "file_path": "",
+                "password": false,
+                "name": "code",
+                "advanced": true,
+                "api_editable": false,
+                "dynamic": true,
+                "info": "",
+                "load_from_db": false,
+                "title_case": false
+              },
+              "database_url": {
+                "load_from_db": true,
+                "override_skip": false,
+                "required": true,
+                "placeholder": "",
+                "show": true,
+                "name": "database_url",
+                "value": "SUPPORT_DB_URL",
+                "display_name": "Database URL",
+                "advanced": false,
+                "api_editable": false,
+                "input_types": [],
+                "dynamic": false,
+                "info": "",
+                "title_case": false,
+                "track_in_telemetry": false,
+                "password": true,
+                "type": "str",
+                "_input_type": "SecretStrInput",
+                "trace_as_input": false,
+                "trace_as_metadata": false
+              },
+              "query": {
+                "tool_mode": true,
+                "trace_as_input": true,
+                "multiline": true,
+                "ai_enabled": false,
+                "trace_as_metadata": true,
+                "load_from_db": false,
+                "list": false,
+                "list_add_label": "Add More",
+                "override_skip": false,
+                "required": true,
+                "placeholder": "",
+                "show": true,
+                "name": "query",
+                "value": "",
+                "display_name": "SQL Query",
+                "advanced": false,
+                "api_editable": false,
+                "input_types": [
+                  "Message"
+                ],
+                "dynamic": false,
+                "info": "One policy-compliant SELECT statement against support_requests.",
+                "title_case": false,
+                "track_in_telemetry": false,
+                "copy_field": false,
+                "password": false,
+                "type": "str",
+                "_input_type": "MultilineInput"
+              },
+              "tools_metadata": {
+                "tool_mode": false,
+                "trace_as_metadata": true,
+                "is_list": true,
+                "list_add_label": "Add More",
+                "override_skip": false,
+                "required": false,
+                "placeholder": "",
+                "show": true,
+                "name": "tools_metadata",
+                "value": [
+                  {
+                    "name": "support_requests_sql",
+                    "description": "Run one approved read-only query against the support_requests table.",
+                    "tags": [
+                      "run_sql_query"
+                    ],
+                    "status": true,
+                    "approval_actions": [],
+                    "display_name": "run_sql_query",
+                    "display_description": "Safely reads approved fields from the support_requests table.",
+                    "readonly": false,
+                    "args": {
+                      "query": {
+                        "description": "One policy-compliant SELECT statement against support_requests.",
+                        "title": "Query",
+                        "type": "string"
+                      }
+                    }
+                  }
+                ],
+                "display_name": "Actions",
+                "advanced": false,
+                "api_editable": false,
+                "dynamic": false,
+                "info": "Modify tool names and descriptions to help agents understand when to use each tool.",
+                "real_time_refresh": true,
+                "title_case": false,
+                "track_in_telemetry": false,
+                "type": "tools",
+                "_input_type": "ToolsInput"
+              }
+            },
+            "description": "Safely reads approved fields from the support_requests table.",
+            "icon": "database",
+            "base_classes": [
+              "JSON"
+            ],
+            "display_name": "support_requests_sql",
+            "documentation": "",
+            "minimized": false,
+            "custom_fields": {},
+            "output_types": [],
+            "pinned": false,
+            "conditional_paths": [],
+            "frozen": false,
+            "outputs": [
+              {
+                "types": [
+                  "Tool"
+                ],
+                "selected": "Tool",
+                "name": "component_as_tool",
+                "hidden": null,
+                "display_name": "Toolset",
+                "method": "to_toolkit",
+                "value": "__UNDEFINED__",
+                "cache": true,
+                "required_inputs": null,
+                "allows_loop": false,
+                "loop_types": null,
+                "group_outputs": false,
+                "options": null,
+                "tool_mode": true
+              }
+            ],
+            "field_order": [
+              "database_url",
+              "query"
+            ],
+            "beta": false,
+            "legacy": false,
+            "edited": false,
+            "metadata": {
+              "module": "custom_components.support_requests_sql",
+              "code_hash": "7c6304375ab0",
+              "dependencies": {
+                "total_dependencies": 3,
+                "dependencies": [
+                  {
+                    "name": "sqlalchemy",
+                    "version": "2.0.51"
+                  },
+                  {
+                    "name": "lfx",
+                    "version": "1.11.1"
+                  },
+                  {
+                    "name": "support_runtime",
+                    "version": null
+                  }
+                ]
+              }
+            },
+            "tool_mode": true
+          },
+          "id": "SQLComponent-5adcab89-5fcb-4f52-8ea7-87e90c160333"
+        }
+      },
+      {
+        "id": "ChatInput-a7a87614-2d8b-4373-9d82-db7f6ae71a63",
         "type": "genericNode",
         "position": {
           "x": 0,
@@ -294,11 +486,11 @@
             },
             "tool_mode": false
           },
-          "id": "ChatInput-a2013556-b352-4571-8572-94809288df6a"
+          "id": "ChatInput-a7a87614-2d8b-4373-9d82-db7f6ae71a63"
         }
       },
       {
-        "id": "Agent-4e6f8a22-83ec-4ffb-bb60-75d3e094cda3",
+        "id": "Agent-79e1effc-873d-4772-b988-187bec6e71b7",
         "type": "genericNode",
         "position": {
           "x": 300,
@@ -421,7 +613,7 @@
                 "trace_as_metadata": true,
                 "track_in_telemetry": true,
                 "type": "bool",
-                "value": true
+                "value": false
               },
               "add_current_date_tool": {
                 "_input_type": "BoolInput",
@@ -442,7 +634,7 @@
                 "trace_as_metadata": true,
                 "track_in_telemetry": true,
                 "type": "bool",
-                "value": true
+                "value": false
               },
               "api_key": {
                 "_input_type": "SecretStrInput",
@@ -965,11 +1157,11 @@
             },
             "tool_mode": false
           },
-          "id": "Agent-4e6f8a22-83ec-4ffb-bb60-75d3e094cda3"
+          "id": "Agent-79e1effc-873d-4772-b988-187bec6e71b7"
         }
       },
       {
-        "id": "OutputParser-fed6be3a-62d1-4c9f-bfbc-3c28534de653",
+        "id": "OutputParser-800c651d-d570-473e-979a-aed8b16ab16a",
         "type": "genericNode",
         "position": {
           "x": 600,
@@ -1100,11 +1292,11 @@
             },
             "tool_mode": false
           },
-          "id": "OutputParser-fed6be3a-62d1-4c9f-bfbc-3c28534de653"
+          "id": "OutputParser-800c651d-d570-473e-979a-aed8b16ab16a"
         }
       },
       {
-        "id": "ConditionalRouter-20925ad1-bc39-4ae8-98d9-0810677982c1",
+        "id": "ConditionalRouter-69d47ae9-3056-4f10-b998-653c200c16b8",
         "type": "genericNode",
         "position": {
           "x": 900,
@@ -1417,11 +1609,11 @@
             },
             "tool_mode": false
           },
-          "id": "ConditionalRouter-20925ad1-bc39-4ae8-98d9-0810677982c1"
+          "id": "ConditionalRouter-69d47ae9-3056-4f10-b998-653c200c16b8"
         }
       },
       {
-        "id": "ConditionalRouter-e2c9e3a4-e189-40ae-a30a-8538e40871ff",
+        "id": "ConditionalRouter-8bffc6cc-db07-4de2-8288-9f407db38527",
         "type": "genericNode",
         "position": {
           "x": 1200,
@@ -1734,11 +1926,11 @@
             },
             "tool_mode": false
           },
-          "id": "ConditionalRouter-e2c9e3a4-e189-40ae-a30a-8538e40871ff"
+          "id": "ConditionalRouter-8bffc6cc-db07-4de2-8288-9f407db38527"
         }
       },
       {
-        "id": "Agent-0b492336-eb46-4f57-b405-dfcc855cac94",
+        "id": "Agent-f882ba0f-d68d-4a9c-9985-ccb34441c8a0",
         "type": "genericNode",
         "position": {
           "x": 1500,
@@ -1861,7 +2053,7 @@
                 "trace_as_metadata": true,
                 "track_in_telemetry": true,
                 "type": "bool",
-                "value": true
+                "value": false
               },
               "add_current_date_tool": {
                 "_input_type": "BoolInput",
@@ -1882,7 +2074,7 @@
                 "trace_as_metadata": true,
                 "track_in_telemetry": true,
                 "type": "bool",
-                "value": true
+                "value": false
               },
               "api_key": {
                 "_input_type": "SecretStrInput",
@@ -2322,7 +2514,7 @@
                 "trace_as_metadata": true,
                 "track_in_telemetry": false,
                 "type": "str",
-                "value": "You are the Analysis Agent. Use the support_requests_sql tool only when support-request data is required.\n\nAvailable schema: support_requests(id integer primary key, customer_name varchar(100), email varchar(255), category varchar(100), priority varchar(50), status varchar(50), created_at timestamp). id is the support request identifier; customer_name is the customer's full name; email is the customer's email; category describes the issue; priority is the stored business priority; status is the current request status; created_at is the creation timestamp.\n\nDatabase access is read-only. Each tool invocation must contain exactly one SELECT statement against support_requests only. Select only fields needed for the current request. Never use SELECT *, UNION, CTEs, system tables, database/system information functions, unnecessary subqueries, or any write/schema/permission statement. Non-aggregate record queries must include LIMIT 50 or less. Use WHERE for supplied identifiers, and require both id and email when verifying a customer's request. Never broaden a lookup or disclose partial/other-customer data when they do not match.\n\nReturn a normalized result with succeeded, records_found, failure_category, handoff_recommended, safe_explanation, and only the requested record fields. Empty results are not errors. On tool failure, do not return raw SQL/driver errors, stack traces, credentials, host details, connection details, or tool logs; return a general actionable safe_explanation and recommend handoff only when appropriate. Never expose database credentials or internal connection details."
+                "value": "You are the Analysis Agent. Use the support_requests_sql tool only when support-request data is required.\n\nWhen the request includes a support request ID and customer email, you MUST call support_requests_sql before answering. The tool is available to you; never claim that database access is unavailable unless the tool itself returns database_query_failed.\n\nAvailable schema: support_requests(id integer primary key, customer_name varchar(100), email varchar(255), category varchar(100), priority varchar(50), status varchar(50), created_at timestamp). id is the support request identifier; customer_name is the customer's full name; email is the customer's email; category describes the issue; priority is the stored business priority; status is the current request status; created_at is the creation timestamp.\n\nDatabase access is read-only. Each tool invocation must contain exactly one SELECT statement against support_requests only. Select only fields needed for the current request. Never use SELECT *, UNION, CTEs, system tables, database/system information functions, unnecessary subqueries, or any write/schema/permission statement. Non-aggregate record queries must include LIMIT 50 or less. Use WHERE for supplied identifiers, and require both id and email when verifying a customer's request. Never broaden a lookup or disclose partial/other-customer data when they do not match.\n\nReturn a normalized result with succeeded, records_found, failure_category, handoff_recommended, safe_explanation, and only the requested record fields. Empty results are not errors. On tool failure, do not return raw SQL/driver errors, stack traces, credentials, host details, connection details, or tool logs; return a general actionable safe_explanation and recommend handoff only when appropriate. Never expose database credentials or internal connection details."
               },
               "tools": {
                 "_input_type": "HandleInput",
@@ -2350,11 +2542,11 @@
             },
             "tool_mode": false
           },
-          "id": "Agent-0b492336-eb46-4f57-b405-dfcc855cac94"
+          "id": "Agent-f882ba0f-d68d-4a9c-9985-ccb34441c8a0"
         }
       },
       {
-        "id": "Agent-1b4dc083-26de-4bda-a5c9-ea4b35bf2e71",
+        "id": "Agent-2403e15c-5620-4316-bcd4-80fbfb1e263f",
         "type": "genericNode",
         "position": {
           "x": 1800,
@@ -2477,7 +2669,7 @@
                 "trace_as_metadata": true,
                 "track_in_telemetry": true,
                 "type": "bool",
-                "value": true
+                "value": false
               },
               "add_current_date_tool": {
                 "_input_type": "BoolInput",
@@ -2498,7 +2690,7 @@
                 "trace_as_metadata": true,
                 "track_in_telemetry": true,
                 "type": "bool",
-                "value": true
+                "value": false
               },
               "api_key": {
                 "_input_type": "SecretStrInput",
@@ -2966,212 +3158,11 @@
             },
             "tool_mode": false
           },
-          "id": "Agent-1b4dc083-26de-4bda-a5c9-ea4b35bf2e71"
+          "id": "Agent-2403e15c-5620-4316-bcd4-80fbfb1e263f"
         }
       },
       {
-        "id": "SQLComponent-e058fab5-3253-448b-a2d4-12c868cc621e",
-        "type": "genericNode",
-        "position": {
-          "x": 1800,
-          "y": 50
-        },
-        "data": {
-          "type": "SQLComponent",
-          "node": {
-            "base_classes": [
-              "Table"
-            ],
-            "beta": false,
-            "conditional_paths": [],
-            "custom_fields": {},
-            "description": "Executes SQL queries on SQLAlchemy-compatible databases.",
-            "display_name": "support_requests_sql",
-            "documentation": "https://docs.langflow.org/sql-database",
-            "edited": false,
-            "field_order": [
-              "database_url",
-              "query",
-              "include_columns",
-              "add_error"
-            ],
-            "frozen": false,
-            "icon": "database",
-            "legacy": false,
-            "metadata": {
-              "code_hash": "f26e89c1d1ca",
-              "dependencies": {
-                "dependencies": [
-                  {
-                    "name": "langchain_community",
-                    "version": "0.4.2"
-                  },
-                  {
-                    "name": "sqlalchemy",
-                    "version": "2.0.51"
-                  },
-                  {
-                    "name": "lfx",
-                    "version": null
-                  }
-                ],
-                "total_dependencies": 3
-              },
-              "keywords": [
-                "sql",
-                "database",
-                "query",
-                "db",
-                "fetch"
-              ],
-              "module": "lfx.components.data_source.sql_executor.SQLComponent"
-            },
-            "minimized": false,
-            "output_types": [],
-            "outputs": [
-              {
-                "allows_loop": false,
-                "cache": true,
-                "display_name": "Result Table",
-                "group_outputs": false,
-                "method": "run_sql_query",
-                "name": "run_sql_query",
-                "selected": "Table",
-                "tool_mode": true,
-                "types": [
-                  "Table"
-                ],
-                "value": "__UNDEFINED__"
-              }
-            ],
-            "pinned": false,
-            "template": {
-              "_type": "Component",
-              "add_error": {
-                "_input_type": "BoolInput",
-                "advanced": true,
-                "api_editable": false,
-                "display_name": "Add Error",
-                "dynamic": false,
-                "info": "If True, the error will be added to the result",
-                "list": false,
-                "list_add_label": "Add More",
-                "name": "add_error",
-                "override_skip": false,
-                "placeholder": "",
-                "required": false,
-                "show": true,
-                "title_case": false,
-                "tool_mode": true,
-                "trace_as_metadata": true,
-                "track_in_telemetry": true,
-                "type": "bool",
-                "value": false
-              },
-              "code": {
-                "advanced": true,
-                "api_editable": false,
-                "dynamic": true,
-                "fileTypes": [],
-                "file_path": "",
-                "info": "",
-                "list": false,
-                "load_from_db": false,
-                "multiline": true,
-                "name": "code",
-                "password": false,
-                "placeholder": "",
-                "required": true,
-                "show": true,
-                "title_case": false,
-                "type": "code",
-                "value": "from typing import TYPE_CHECKING, Any\n\nfrom langchain_community.utilities import SQLDatabase\nfrom sqlalchemy.exc import SQLAlchemyError\n\nfrom lfx.custom.custom_component.component_with_cache import ComponentWithCache\nfrom lfx.io import BoolInput, MessageTextInput, MultilineInput, Output\nfrom lfx.schema.dataframe import DataFrame\nfrom lfx.schema.message import Message\nfrom lfx.services.cache.utils import CacheMiss\nfrom lfx.utils.ssrf_protection import validate_connector_database_url_for_ssrf\n\nif TYPE_CHECKING:\n    from sqlalchemy.engine import Result\n\nSQL_DATABASE_ENGINE_ARGS = {\"pool_pre_ping\": True}\n\n\nclass SQLComponent(ComponentWithCache):\n    \"\"\"A sql component.\"\"\"\n\n    display_name = \"SQL Database\"\n    description = \"Executes SQL queries on SQLAlchemy-compatible databases.\"\n    documentation: str = \"https://docs.langflow.org/sql-database\"\n    icon = \"database\"\n    name = \"SQLComponent\"\n    metadata = {\"keywords\": [\"sql\", \"database\", \"query\", \"db\", \"fetch\"]}\n\n    def __init__(self, **kwargs) -> None:\n        super().__init__(**kwargs)\n        self.db: SQLDatabase = None\n\n    def maybe_create_db(self):\n        if self.database_url != \"\":\n            # Security: a tenant fully controls database_url. Block SSRF to internal\n            # databases/services and local-file dialects (sqlite/duckdb -> arbitrary\n            # server file read/write) before opening the connection.\n            validate_connector_database_url_for_ssrf(self.database_url)\n            if self._shared_component_cache:\n                cached_db = self._shared_component_cache.get(self.database_url)\n                if not isinstance(cached_db, CacheMiss):\n                    self.db = cached_db\n                    return\n                self.log(\"Connecting to database\")\n            try:\n                self.db = SQLDatabase.from_uri(self.database_url, engine_args=SQL_DATABASE_ENGINE_ARGS)\n            except Exception as e:\n                msg = f\"An error occurred while connecting to the database: {e}\"\n                raise ValueError(msg) from e\n            if self._shared_component_cache:\n                self._shared_component_cache.set(self.database_url, self.db)\n\n    inputs = [\n        MessageTextInput(name=\"database_url\", display_name=\"Database URL\", required=True),\n        MultilineInput(name=\"query\", display_name=\"SQL Query\", tool_mode=True, required=True),\n        BoolInput(name=\"include_columns\", display_name=\"Include Columns\", value=True, tool_mode=True, advanced=True),\n        BoolInput(\n            name=\"add_error\",\n            display_name=\"Add Error\",\n            value=False,\n            tool_mode=True,\n            info=\"If True, the error will be added to the result\",\n            advanced=True,\n        ),\n    ]\n\n    outputs = [\n        Output(display_name=\"Result Table\", name=\"run_sql_query\", method=\"run_sql_query\"),\n    ]\n\n    def build_component(\n        self,\n    ) -> Message:\n        error = None\n        self.maybe_create_db()\n        try:\n            result = self.db.run(self.query, include_columns=self.include_columns)\n            self.status = result\n        except SQLAlchemyError as e:\n            msg = f\"An error occurred while running the SQL Query: {e}\"\n            self.log(msg)\n            result = str(e)\n            self.status = result\n            error = repr(e)\n\n        if self.add_error and error is not None:\n            result = f\"{result}\\n\\nError: {error}\\n\\nQuery: {self.query}\"\n        elif error is not None:\n            # Then we won't add the error to the result\n            result = self.query\n\n        return Message(text=result)\n\n    def __execute_query(self) -> list[dict[str, Any]]:\n        self.maybe_create_db()\n        try:\n            cursor: Result[Any] = self.db.run(self.query, fetch=\"cursor\")\n            return [x._asdict() for x in cursor.fetchall()]\n        except SQLAlchemyError as e:\n            msg = f\"An error occurred while running the SQL Query: {e}\"\n            self.log(msg)\n            raise ValueError(msg) from e\n\n    def run_sql_query(self) -> DataFrame:\n        result = self.__execute_query()\n        df_result = DataFrame(result)\n        self.status = df_result\n        return df_result\n"
-              },
-              "database_url": {
-                "_input_type": "MessageTextInput",
-                "advanced": false,
-                "api_editable": false,
-                "display_name": "Database URL",
-                "dynamic": false,
-                "info": "",
-                "input_types": [
-                  "Message"
-                ],
-                "list": false,
-                "list_add_label": "Add More",
-                "load_from_db": true,
-                "name": "database_url",
-                "override_skip": false,
-                "placeholder": "",
-                "required": true,
-                "show": true,
-                "title_case": false,
-                "tool_mode": false,
-                "trace_as_input": true,
-                "trace_as_metadata": true,
-                "track_in_telemetry": false,
-                "type": "str",
-                "value": "SUPPORT_DB_URL"
-              },
-              "include_columns": {
-                "_input_type": "BoolInput",
-                "advanced": true,
-                "api_editable": false,
-                "display_name": "Include Columns",
-                "dynamic": false,
-                "info": "",
-                "list": false,
-                "list_add_label": "Add More",
-                "name": "include_columns",
-                "override_skip": false,
-                "placeholder": "",
-                "required": false,
-                "show": true,
-                "title_case": false,
-                "tool_mode": true,
-                "trace_as_metadata": true,
-                "track_in_telemetry": true,
-                "type": "bool",
-                "value": true
-              },
-              "query": {
-                "_input_type": "MultilineInput",
-                "advanced": false,
-                "ai_enabled": false,
-                "api_editable": false,
-                "copy_field": false,
-                "display_name": "SQL Query",
-                "dynamic": false,
-                "info": "",
-                "input_types": [
-                  "Message"
-                ],
-                "list": false,
-                "list_add_label": "Add More",
-                "load_from_db": false,
-                "multiline": true,
-                "name": "query",
-                "override_skip": false,
-                "password": false,
-                "placeholder": "",
-                "required": true,
-                "show": true,
-                "title_case": false,
-                "tool_mode": true,
-                "trace_as_input": true,
-                "trace_as_metadata": true,
-                "track_in_telemetry": false,
-                "type": "str",
-                "value": ""
-              }
-            },
-            "tool_mode": false
-          },
-          "id": "SQLComponent-e058fab5-3253-448b-a2d4-12c868cc621e"
-        }
-      },
-      {
-        "id": "Pass-14b12b33-fb01-4cec-9708-a2ebebd0e67e",
+        "id": "Pass-d15b7131-3d37-49ba-84ab-de46a86d4f82",
         "type": "genericNode",
         "position": {
           "x": 2100,
@@ -3308,11 +3299,11 @@
             },
             "tool_mode": false
           },
-          "id": "Pass-14b12b33-fb01-4cec-9708-a2ebebd0e67e"
+          "id": "Pass-d15b7131-3d37-49ba-84ab-de46a86d4f82"
         }
       },
       {
-        "id": "Memory-b3762623-7e2e-4bdd-b633-bb14ce33ab3a",
+        "id": "Memory-35d095c5-518f-4f47-af04-1abea239ec59",
         "type": "genericNode",
         "position": {
           "x": 300,
@@ -3703,11 +3694,11 @@
             },
             "tool_mode": false
           },
-          "id": "Memory-b3762623-7e2e-4bdd-b633-bb14ce33ab3a"
+          "id": "Memory-35d095c5-518f-4f47-af04-1abea239ec59"
         }
       },
       {
-        "id": "ChatOutput-aed4248c-c866-4a4f-a878-0172b6f9df2a",
+        "id": "ChatOutput-287c16db-4d64-406b-bd17-cae4b11189c2",
         "type": "genericNode",
         "position": {
           "x": 2400,
@@ -4004,7 +3995,7 @@
             },
             "tool_mode": false
           },
-          "id": "ChatOutput-aed4248c-c866-4a4f-a878-0172b6f9df2a"
+          "id": "ChatOutput-287c16db-4d64-406b-bd17-cae4b11189c2"
         }
       }
     ],
@@ -4015,7 +4006,7 @@
         "data": {
           "sourceHandle": {
             "dataType": "ChatInput",
-            "id": "ChatInput-a2013556-b352-4571-8572-94809288df6a",
+            "id": "ChatInput-a7a87614-2d8b-4373-9d82-db7f6ae71a63",
             "name": "message",
             "output_types": [
               "Message"
@@ -4023,19 +4014,19 @@
           },
           "targetHandle": {
             "fieldName": "input_value",
-            "id": "Agent-4e6f8a22-83ec-4ffb-bb60-75d3e094cda3",
+            "id": "Agent-79e1effc-873d-4772-b988-187bec6e71b7",
             "inputTypes": [
               "Message"
             ],
             "type": "str"
           }
         },
-        "id": "reactflow__edge-ChatInput-a2013556-b352-4571-8572-94809288df6a{\u0153dataType\u0153:\u0153ChatInput\u0153,\u0153id\u0153:\u0153ChatInput-a2013556-b352-4571-8572-94809288df6a\u0153,\u0153name\u0153:\u0153message\u0153,\u0153output_types\u0153:[\u0153Message\u0153]}-Agent-4e6f8a22-83ec-4ffb-bb60-75d3e094cda3{\u0153fieldName\u0153:\u0153input_value\u0153,\u0153id\u0153:\u0153Agent-4e6f8a22-83ec-4ffb-bb60-75d3e094cda3\u0153,\u0153inputTypes\u0153:[\u0153Message\u0153],\u0153type\u0153:\u0153str\u0153}",
+        "id": "reactflow__edge-ChatInput-a7a87614-2d8b-4373-9d82-db7f6ae71a63{\u0153dataType\u0153:\u0153ChatInput\u0153,\u0153id\u0153:\u0153ChatInput-a7a87614-2d8b-4373-9d82-db7f6ae71a63\u0153,\u0153name\u0153:\u0153message\u0153,\u0153output_types\u0153:[\u0153Message\u0153]}-Agent-79e1effc-873d-4772-b988-187bec6e71b7{\u0153fieldName\u0153:\u0153input_value\u0153,\u0153id\u0153:\u0153Agent-79e1effc-873d-4772-b988-187bec6e71b7\u0153,\u0153inputTypes\u0153:[\u0153Message\u0153],\u0153type\u0153:\u0153str\u0153}",
         "selected": false,
-        "source": "ChatInput-a2013556-b352-4571-8572-94809288df6a",
-        "sourceHandle": "{\u0153dataType\u0153:\u0153ChatInput\u0153,\u0153id\u0153:\u0153ChatInput-a2013556-b352-4571-8572-94809288df6a\u0153,\u0153name\u0153:\u0153message\u0153,\u0153output_types\u0153:[\u0153Message\u0153]}",
-        "target": "Agent-4e6f8a22-83ec-4ffb-bb60-75d3e094cda3",
-        "targetHandle": "{\u0153fieldName\u0153:\u0153input_value\u0153,\u0153id\u0153:\u0153Agent-4e6f8a22-83ec-4ffb-bb60-75d3e094cda3\u0153,\u0153inputTypes\u0153:[\u0153Message\u0153],\u0153type\u0153:\u0153str\u0153}"
+        "source": "ChatInput-a7a87614-2d8b-4373-9d82-db7f6ae71a63",
+        "sourceHandle": "{\u0153dataType\u0153:\u0153ChatInput\u0153,\u0153id\u0153:\u0153ChatInput-a7a87614-2d8b-4373-9d82-db7f6ae71a63\u0153,\u0153name\u0153:\u0153message\u0153,\u0153output_types\u0153:[\u0153Message\u0153]}",
+        "target": "Agent-79e1effc-873d-4772-b988-187bec6e71b7",
+        "targetHandle": "{\u0153fieldName\u0153:\u0153input_value\u0153,\u0153id\u0153:\u0153Agent-79e1effc-873d-4772-b988-187bec6e71b7\u0153,\u0153inputTypes\u0153:[\u0153Message\u0153],\u0153type\u0153:\u0153str\u0153}"
       },
       {
         "animated": false,
@@ -4043,7 +4034,7 @@
         "data": {
           "sourceHandle": {
             "dataType": "OutputParser",
-            "id": "OutputParser-fed6be3a-62d1-4c9f-bfbc-3c28534de653",
+            "id": "OutputParser-800c651d-d570-473e-979a-aed8b16ab16a",
             "name": "format_instructions",
             "output_types": [
               "Message"
@@ -4051,19 +4042,19 @@
           },
           "targetHandle": {
             "fieldName": "format_instructions",
-            "id": "Agent-4e6f8a22-83ec-4ffb-bb60-75d3e094cda3",
+            "id": "Agent-79e1effc-873d-4772-b988-187bec6e71b7",
             "inputTypes": [
               "Message"
             ],
             "type": "str"
           }
         },
-        "id": "reactflow__edge-OutputParser-fed6be3a-62d1-4c9f-bfbc-3c28534de653{\u0153dataType\u0153:\u0153OutputParser\u0153,\u0153id\u0153:\u0153OutputParser-fed6be3a-62d1-4c9f-bfbc-3c28534de653\u0153,\u0153name\u0153:\u0153format_instructions\u0153,\u0153output_types\u0153:[\u0153Message\u0153]}-Agent-4e6f8a22-83ec-4ffb-bb60-75d3e094cda3{\u0153fieldName\u0153:\u0153format_instructions\u0153,\u0153id\u0153:\u0153Agent-4e6f8a22-83ec-4ffb-bb60-75d3e094cda3\u0153,\u0153inputTypes\u0153:[\u0153Message\u0153],\u0153type\u0153:\u0153str\u0153}",
+        "id": "reactflow__edge-OutputParser-800c651d-d570-473e-979a-aed8b16ab16a{\u0153dataType\u0153:\u0153OutputParser\u0153,\u0153id\u0153:\u0153OutputParser-800c651d-d570-473e-979a-aed8b16ab16a\u0153,\u0153name\u0153:\u0153format_instructions\u0153,\u0153output_types\u0153:[\u0153Message\u0153]}-Agent-79e1effc-873d-4772-b988-187bec6e71b7{\u0153fieldName\u0153:\u0153format_instructions\u0153,\u0153id\u0153:\u0153Agent-79e1effc-873d-4772-b988-187bec6e71b7\u0153,\u0153inputTypes\u0153:[\u0153Message\u0153],\u0153type\u0153:\u0153str\u0153}",
         "selected": false,
-        "source": "OutputParser-fed6be3a-62d1-4c9f-bfbc-3c28534de653",
-        "sourceHandle": "{\u0153dataType\u0153:\u0153OutputParser\u0153,\u0153id\u0153:\u0153OutputParser-fed6be3a-62d1-4c9f-bfbc-3c28534de653\u0153,\u0153name\u0153:\u0153format_instructions\u0153,\u0153output_types\u0153:[\u0153Message\u0153]}",
-        "target": "Agent-4e6f8a22-83ec-4ffb-bb60-75d3e094cda3",
-        "targetHandle": "{\u0153fieldName\u0153:\u0153format_instructions\u0153,\u0153id\u0153:\u0153Agent-4e6f8a22-83ec-4ffb-bb60-75d3e094cda3\u0153,\u0153inputTypes\u0153:[\u0153Message\u0153],\u0153type\u0153:\u0153str\u0153}"
+        "source": "OutputParser-800c651d-d570-473e-979a-aed8b16ab16a",
+        "sourceHandle": "{\u0153dataType\u0153:\u0153OutputParser\u0153,\u0153id\u0153:\u0153OutputParser-800c651d-d570-473e-979a-aed8b16ab16a\u0153,\u0153name\u0153:\u0153format_instructions\u0153,\u0153output_types\u0153:[\u0153Message\u0153]}",
+        "target": "Agent-79e1effc-873d-4772-b988-187bec6e71b7",
+        "targetHandle": "{\u0153fieldName\u0153:\u0153format_instructions\u0153,\u0153id\u0153:\u0153Agent-79e1effc-873d-4772-b988-187bec6e71b7\u0153,\u0153inputTypes\u0153:[\u0153Message\u0153],\u0153type\u0153:\u0153str\u0153}"
       },
       {
         "animated": false,
@@ -4071,147 +4062,28 @@
         "data": {
           "sourceHandle": {
             "dataType": "Agent",
-            "id": "Agent-4e6f8a22-83ec-4ffb-bb60-75d3e094cda3",
+            "id": "Agent-79e1effc-873d-4772-b988-187bec6e71b7",
             "name": "response",
             "output_types": [
               "Message"
             ]
           },
           "targetHandle": {
-            "fieldName": "input_text",
-            "id": "ConditionalRouter-20925ad1-bc39-4ae8-98d9-0810677982c1",
-            "inputTypes": [
-              "Message"
-            ],
-            "type": "str"
-          }
-        },
-        "id": "reactflow__edge-Agent-4e6f8a22-83ec-4ffb-bb60-75d3e094cda3{\u0153dataType\u0153:\u0153Agent\u0153,\u0153id\u0153:\u0153Agent-4e6f8a22-83ec-4ffb-bb60-75d3e094cda3\u0153,\u0153name\u0153:\u0153response\u0153,\u0153output_types\u0153:[\u0153Message\u0153]}-ConditionalRouter-20925ad1-bc39-4ae8-98d9-0810677982c1{\u0153fieldName\u0153:\u0153input_text\u0153,\u0153id\u0153:\u0153ConditionalRouter-20925ad1-bc39-4ae8-98d9-0810677982c1\u0153,\u0153inputTypes\u0153:[\u0153Message\u0153],\u0153type\u0153:\u0153str\u0153}",
-        "selected": false,
-        "source": "Agent-4e6f8a22-83ec-4ffb-bb60-75d3e094cda3",
-        "sourceHandle": "{\u0153dataType\u0153:\u0153Agent\u0153,\u0153id\u0153:\u0153Agent-4e6f8a22-83ec-4ffb-bb60-75d3e094cda3\u0153,\u0153name\u0153:\u0153response\u0153,\u0153output_types\u0153:[\u0153Message\u0153]}",
-        "target": "ConditionalRouter-20925ad1-bc39-4ae8-98d9-0810677982c1",
-        "targetHandle": "{\u0153fieldName\u0153:\u0153input_text\u0153,\u0153id\u0153:\u0153ConditionalRouter-20925ad1-bc39-4ae8-98d9-0810677982c1\u0153,\u0153inputTypes\u0153:[\u0153Message\u0153],\u0153type\u0153:\u0153str\u0153}"
-      },
-      {
-        "animated": false,
-        "className": "",
-        "data": {
-          "sourceHandle": {
-            "dataType": "ConditionalRouter",
-            "id": "ConditionalRouter-20925ad1-bc39-4ae8-98d9-0810677982c1",
-            "name": "true_result",
-            "output_types": [
-              "Message"
-            ]
-          },
-          "targetHandle": {
             "fieldName": "input_value",
-            "id": "ChatOutput-aed4248c-c866-4a4f-a878-0172b6f9df2a",
-            "inputTypes": [
-              "Data",
-              "JSON",
-              "DataFrame",
-              "Table",
-              "Message"
-            ],
-            "type": "other"
-          }
-        },
-        "id": "reactflow__edge-ConditionalRouter-20925ad1-bc39-4ae8-98d9-0810677982c1{\u0153dataType\u0153:\u0153ConditionalRouter\u0153,\u0153id\u0153:\u0153ConditionalRouter-20925ad1-bc39-4ae8-98d9-0810677982c1\u0153,\u0153name\u0153:\u0153true_result\u0153,\u0153output_types\u0153:[\u0153Message\u0153]}-ChatOutput-aed4248c-c866-4a4f-a878-0172b6f9df2a{\u0153fieldName\u0153:\u0153input_value\u0153,\u0153id\u0153:\u0153ChatOutput-aed4248c-c866-4a4f-a878-0172b6f9df2a\u0153,\u0153inputTypes\u0153:[\u0153Data\u0153,\u0153JSON\u0153,\u0153DataFrame\u0153,\u0153Table\u0153,\u0153Message\u0153],\u0153type\u0153:\u0153other\u0153}",
-        "selected": false,
-        "source": "ConditionalRouter-20925ad1-bc39-4ae8-98d9-0810677982c1",
-        "sourceHandle": "{\u0153dataType\u0153:\u0153ConditionalRouter\u0153,\u0153id\u0153:\u0153ConditionalRouter-20925ad1-bc39-4ae8-98d9-0810677982c1\u0153,\u0153name\u0153:\u0153true_result\u0153,\u0153output_types\u0153:[\u0153Message\u0153]}",
-        "target": "ChatOutput-aed4248c-c866-4a4f-a878-0172b6f9df2a",
-        "targetHandle": "{\u0153fieldName\u0153:\u0153input_value\u0153,\u0153id\u0153:\u0153ChatOutput-aed4248c-c866-4a4f-a878-0172b6f9df2a\u0153,\u0153inputTypes\u0153:[\u0153Data\u0153,\u0153JSON\u0153,\u0153DataFrame\u0153,\u0153Table\u0153,\u0153Message\u0153],\u0153type\u0153:\u0153other\u0153}",
-        "label": "direct / clarification"
-      },
-      {
-        "animated": false,
-        "className": "",
-        "data": {
-          "sourceHandle": {
-            "dataType": "ConditionalRouter",
-            "id": "ConditionalRouter-20925ad1-bc39-4ae8-98d9-0810677982c1",
-            "name": "false_result",
-            "output_types": [
-              "Message"
-            ]
-          },
-          "targetHandle": {
-            "fieldName": "input_text",
-            "id": "ConditionalRouter-e2c9e3a4-e189-40ae-a30a-8538e40871ff",
+            "id": "Agent-f882ba0f-d68d-4a9c-9985-ccb34441c8a0",
             "inputTypes": [
               "Message"
             ],
             "type": "str"
           }
         },
-        "id": "reactflow__edge-ConditionalRouter-20925ad1-bc39-4ae8-98d9-0810677982c1{\u0153dataType\u0153:\u0153ConditionalRouter\u0153,\u0153id\u0153:\u0153ConditionalRouter-20925ad1-bc39-4ae8-98d9-0810677982c1\u0153,\u0153name\u0153:\u0153false_result\u0153,\u0153output_types\u0153:[\u0153Message\u0153]}-ConditionalRouter-e2c9e3a4-e189-40ae-a30a-8538e40871ff{\u0153fieldName\u0153:\u0153input_text\u0153,\u0153id\u0153:\u0153ConditionalRouter-e2c9e3a4-e189-40ae-a30a-8538e40871ff\u0153,\u0153inputTypes\u0153:[\u0153Message\u0153],\u0153type\u0153:\u0153str\u0153}",
+        "id": "reactflow__edge-Agent-79e1effc-873d-4772-b988-187bec6e71b7{\u0153dataType\u0153:\u0153Agent\u0153,\u0153id\u0153:\u0153Agent-79e1effc-873d-4772-b988-187bec6e71b7\u0153,\u0153name\u0153:\u0153response\u0153,\u0153output_types\u0153:[\u0153Message\u0153]}-Agent-f882ba0f-d68d-4a9c-9985-ccb34441c8a0{\u0153fieldName\u0153:\u0153input_value\u0153,\u0153id\u0153:\u0153Agent-f882ba0f-d68d-4a9c-9985-ccb34441c8a0\u0153,\u0153inputTypes\u0153:[\u0153Message\u0153],\u0153type\u0153:\u0153str\u0153}",
         "selected": false,
-        "source": "ConditionalRouter-20925ad1-bc39-4ae8-98d9-0810677982c1",
-        "sourceHandle": "{\u0153dataType\u0153:\u0153ConditionalRouter\u0153,\u0153id\u0153:\u0153ConditionalRouter-20925ad1-bc39-4ae8-98d9-0810677982c1\u0153,\u0153name\u0153:\u0153false_result\u0153,\u0153output_types\u0153:[\u0153Message\u0153]}",
-        "target": "ConditionalRouter-e2c9e3a4-e189-40ae-a30a-8538e40871ff",
-        "targetHandle": "{\u0153fieldName\u0153:\u0153input_text\u0153,\u0153id\u0153:\u0153ConditionalRouter-e2c9e3a4-e189-40ae-a30a-8538e40871ff\u0153,\u0153inputTypes\u0153:[\u0153Message\u0153],\u0153type\u0153:\u0153str\u0153}",
-        "label": "downstream route"
-      },
-      {
-        "animated": false,
-        "className": "",
-        "data": {
-          "sourceHandle": {
-            "dataType": "ConditionalRouter",
-            "id": "ConditionalRouter-e2c9e3a4-e189-40ae-a30a-8538e40871ff",
-            "name": "true_result",
-            "output_types": [
-              "Message"
-            ]
-          },
-          "targetHandle": {
-            "fieldName": "input_value",
-            "id": "Agent-0b492336-eb46-4f57-b405-dfcc855cac94",
-            "inputTypes": [
-              "Message"
-            ],
-            "type": "str"
-          }
-        },
-        "id": "reactflow__edge-ConditionalRouter-e2c9e3a4-e189-40ae-a30a-8538e40871ff{\u0153dataType\u0153:\u0153ConditionalRouter\u0153,\u0153id\u0153:\u0153ConditionalRouter-e2c9e3a4-e189-40ae-a30a-8538e40871ff\u0153,\u0153name\u0153:\u0153true_result\u0153,\u0153output_types\u0153:[\u0153Message\u0153]}-Agent-0b492336-eb46-4f57-b405-dfcc855cac94{\u0153fieldName\u0153:\u0153input_value\u0153,\u0153id\u0153:\u0153Agent-0b492336-eb46-4f57-b405-dfcc855cac94\u0153,\u0153inputTypes\u0153:[\u0153Message\u0153],\u0153type\u0153:\u0153str\u0153}",
-        "selected": false,
-        "source": "ConditionalRouter-e2c9e3a4-e189-40ae-a30a-8538e40871ff",
-        "sourceHandle": "{\u0153dataType\u0153:\u0153ConditionalRouter\u0153,\u0153id\u0153:\u0153ConditionalRouter-e2c9e3a4-e189-40ae-a30a-8538e40871ff\u0153,\u0153name\u0153:\u0153true_result\u0153,\u0153output_types\u0153:[\u0153Message\u0153]}",
-        "target": "Agent-0b492336-eb46-4f57-b405-dfcc855cac94",
-        "targetHandle": "{\u0153fieldName\u0153:\u0153input_value\u0153,\u0153id\u0153:\u0153Agent-0b492336-eb46-4f57-b405-dfcc855cac94\u0153,\u0153inputTypes\u0153:[\u0153Message\u0153],\u0153type\u0153:\u0153str\u0153}",
-        "label": "analysis"
-      },
-      {
-        "animated": false,
-        "className": "",
-        "data": {
-          "sourceHandle": {
-            "dataType": "ConditionalRouter",
-            "id": "ConditionalRouter-e2c9e3a4-e189-40ae-a30a-8538e40871ff",
-            "name": "false_result",
-            "output_types": [
-              "Message"
-            ]
-          },
-          "targetHandle": {
-            "fieldName": "input_value",
-            "id": "Agent-1b4dc083-26de-4bda-a5c9-ea4b35bf2e71",
-            "inputTypes": [
-              "Message"
-            ],
-            "type": "str"
-          }
-        },
-        "id": "reactflow__edge-ConditionalRouter-e2c9e3a4-e189-40ae-a30a-8538e40871ff{\u0153dataType\u0153:\u0153ConditionalRouter\u0153,\u0153id\u0153:\u0153ConditionalRouter-e2c9e3a4-e189-40ae-a30a-8538e40871ff\u0153,\u0153name\u0153:\u0153false_result\u0153,\u0153output_types\u0153:[\u0153Message\u0153]}-Agent-1b4dc083-26de-4bda-a5c9-ea4b35bf2e71{\u0153fieldName\u0153:\u0153input_value\u0153,\u0153id\u0153:\u0153Agent-1b4dc083-26de-4bda-a5c9-ea4b35bf2e71\u0153,\u0153inputTypes\u0153:[\u0153Message\u0153],\u0153type\u0153:\u0153str\u0153}",
-        "selected": false,
-        "source": "ConditionalRouter-e2c9e3a4-e189-40ae-a30a-8538e40871ff",
-        "sourceHandle": "{\u0153dataType\u0153:\u0153ConditionalRouter\u0153,\u0153id\u0153:\u0153ConditionalRouter-e2c9e3a4-e189-40ae-a30a-8538e40871ff\u0153,\u0153name\u0153:\u0153false_result\u0153,\u0153output_types\u0153:[\u0153Message\u0153]}",
-        "target": "Agent-1b4dc083-26de-4bda-a5c9-ea4b35bf2e71",
-        "targetHandle": "{\u0153fieldName\u0153:\u0153input_value\u0153,\u0153id\u0153:\u0153Agent-1b4dc083-26de-4bda-a5c9-ea4b35bf2e71\u0153,\u0153inputTypes\u0153:[\u0153Message\u0153],\u0153type\u0153:\u0153str\u0153}",
-        "label": "response / handoff"
+        "source": "Agent-79e1effc-873d-4772-b988-187bec6e71b7",
+        "sourceHandle": "{\u0153dataType\u0153:\u0153Agent\u0153,\u0153id\u0153:\u0153Agent-79e1effc-873d-4772-b988-187bec6e71b7\u0153,\u0153name\u0153:\u0153response\u0153,\u0153output_types\u0153:[\u0153Message\u0153]}",
+        "target": "Agent-f882ba0f-d68d-4a9c-9985-ccb34441c8a0",
+        "targetHandle": "{\u0153fieldName\u0153:\u0153input_value\u0153,\u0153id\u0153:\u0153Agent-f882ba0f-d68d-4a9c-9985-ccb34441c8a0\u0153,\u0153inputTypes\u0153:[\u0153Message\u0153],\u0153type\u0153:\u0153str\u0153}",
+        "label": "Stage 1 analysis"
       },
       {
         "animated": false,
@@ -4219,27 +4091,27 @@
         "data": {
           "sourceHandle": {
             "dataType": "SQLComponent",
-            "id": "SQLComponent-e058fab5-3253-448b-a2d4-12c868cc621e",
-            "name": "run_sql_query",
+            "id": "SQLComponent-5adcab89-5fcb-4f52-8ea7-87e90c160333",
+            "name": "component_as_tool",
             "output_types": [
-              "Table"
+              "Tool"
             ]
           },
           "targetHandle": {
             "fieldName": "tools",
-            "id": "Agent-0b492336-eb46-4f57-b405-dfcc855cac94",
+            "id": "Agent-f882ba0f-d68d-4a9c-9985-ccb34441c8a0",
             "inputTypes": [
               "Tool"
             ],
             "type": "other"
           }
         },
-        "id": "reactflow__edge-SQLComponent-e058fab5-3253-448b-a2d4-12c868cc621e{\u0153dataType\u0153:\u0153SQLComponent\u0153,\u0153id\u0153:\u0153SQLComponent-e058fab5-3253-448b-a2d4-12c868cc621e\u0153,\u0153name\u0153:\u0153run_sql_query\u0153,\u0153output_types\u0153:[\u0153Table\u0153]}-Agent-0b492336-eb46-4f57-b405-dfcc855cac94{\u0153fieldName\u0153:\u0153tools\u0153,\u0153id\u0153:\u0153Agent-0b492336-eb46-4f57-b405-dfcc855cac94\u0153,\u0153inputTypes\u0153:[\u0153Tool\u0153],\u0153type\u0153:\u0153other\u0153}",
+        "id": "reactflow__edge-SQLComponent-5adcab89-5fcb-4f52-8ea7-87e90c160333{\u0153dataType\u0153:\u0153SQLComponent\u0153,\u0153id\u0153:\u0153SQLComponent-5adcab89-5fcb-4f52-8ea7-87e90c160333\u0153,\u0153name\u0153:\u0153component_as_tool\u0153,\u0153output_types\u0153:[\u0153Tool\u0153]}-Agent-f882ba0f-d68d-4a9c-9985-ccb34441c8a0{\u0153fieldName\u0153:\u0153tools\u0153,\u0153id\u0153:\u0153Agent-f882ba0f-d68d-4a9c-9985-ccb34441c8a0\u0153,\u0153inputTypes\u0153:[\u0153Tool\u0153],\u0153type\u0153:\u0153other\u0153}",
         "selected": false,
-        "source": "SQLComponent-e058fab5-3253-448b-a2d4-12c868cc621e",
-        "sourceHandle": "{\u0153dataType\u0153:\u0153SQLComponent\u0153,\u0153id\u0153:\u0153SQLComponent-e058fab5-3253-448b-a2d4-12c868cc621e\u0153,\u0153name\u0153:\u0153run_sql_query\u0153,\u0153output_types\u0153:[\u0153Table\u0153]}",
-        "target": "Agent-0b492336-eb46-4f57-b405-dfcc855cac94",
-        "targetHandle": "{\u0153fieldName\u0153:\u0153tools\u0153,\u0153id\u0153:\u0153Agent-0b492336-eb46-4f57-b405-dfcc855cac94\u0153,\u0153inputTypes\u0153:[\u0153Tool\u0153],\u0153type\u0153:\u0153other\u0153}",
+        "source": "SQLComponent-5adcab89-5fcb-4f52-8ea7-87e90c160333",
+        "sourceHandle": "{\u0153dataType\u0153:\u0153SQLComponent\u0153,\u0153id\u0153:\u0153SQLComponent-5adcab89-5fcb-4f52-8ea7-87e90c160333\u0153,\u0153name\u0153:\u0153component_as_tool\u0153,\u0153output_types\u0153:[\u0153Tool\u0153]}",
+        "target": "Agent-f882ba0f-d68d-4a9c-9985-ccb34441c8a0",
+        "targetHandle": "{\u0153fieldName\u0153:\u0153tools\u0153,\u0153id\u0153:\u0153Agent-f882ba0f-d68d-4a9c-9985-ccb34441c8a0\u0153,\u0153inputTypes\u0153:[\u0153Tool\u0153],\u0153type\u0153:\u0153other\u0153}",
         "label": "Analysis tool only"
       },
       {
@@ -4248,7 +4120,7 @@
         "data": {
           "sourceHandle": {
             "dataType": "Agent",
-            "id": "Agent-0b492336-eb46-4f57-b405-dfcc855cac94",
+            "id": "Agent-f882ba0f-d68d-4a9c-9985-ccb34441c8a0",
             "name": "response",
             "output_types": [
               "Message"
@@ -4256,65 +4128,7 @@
           },
           "targetHandle": {
             "fieldName": "input_value",
-            "id": "Agent-1b4dc083-26de-4bda-a5c9-ea4b35bf2e71",
-            "inputTypes": [
-              "Message"
-            ],
-            "type": "str"
-          }
-        },
-        "id": "reactflow__edge-Agent-0b492336-eb46-4f57-b405-dfcc855cac94{\u0153dataType\u0153:\u0153Agent\u0153,\u0153id\u0153:\u0153Agent-0b492336-eb46-4f57-b405-dfcc855cac94\u0153,\u0153name\u0153:\u0153response\u0153,\u0153output_types\u0153:[\u0153Message\u0153]}-Agent-1b4dc083-26de-4bda-a5c9-ea4b35bf2e71{\u0153fieldName\u0153:\u0153input_value\u0153,\u0153id\u0153:\u0153Agent-1b4dc083-26de-4bda-a5c9-ea4b35bf2e71\u0153,\u0153inputTypes\u0153:[\u0153Message\u0153],\u0153type\u0153:\u0153str\u0153}",
-        "selected": false,
-        "source": "Agent-0b492336-eb46-4f57-b405-dfcc855cac94",
-        "sourceHandle": "{\u0153dataType\u0153:\u0153Agent\u0153,\u0153id\u0153:\u0153Agent-0b492336-eb46-4f57-b405-dfcc855cac94\u0153,\u0153name\u0153:\u0153response\u0153,\u0153output_types\u0153:[\u0153Message\u0153]}",
-        "target": "Agent-1b4dc083-26de-4bda-a5c9-ea4b35bf2e71",
-        "targetHandle": "{\u0153fieldName\u0153:\u0153input_value\u0153,\u0153id\u0153:\u0153Agent-1b4dc083-26de-4bda-a5c9-ea4b35bf2e71\u0153,\u0153inputTypes\u0153:[\u0153Message\u0153],\u0153type\u0153:\u0153str\u0153}",
-        "label": "complex response"
-      },
-      {
-        "animated": false,
-        "className": "",
-        "data": {
-          "sourceHandle": {
-            "dataType": "Agent",
-            "id": "Agent-1b4dc083-26de-4bda-a5c9-ea4b35bf2e71",
-            "name": "response",
-            "output_types": [
-              "Message"
-            ]
-          },
-          "targetHandle": {
-            "fieldName": "input_message",
-            "id": "Pass-14b12b33-fb01-4cec-9708-a2ebebd0e67e",
-            "inputTypes": [
-              "Message"
-            ],
-            "type": "str"
-          }
-        },
-        "id": "reactflow__edge-Agent-1b4dc083-26de-4bda-a5c9-ea4b35bf2e71{\u0153dataType\u0153:\u0153Agent\u0153,\u0153id\u0153:\u0153Agent-1b4dc083-26de-4bda-a5c9-ea4b35bf2e71\u0153,\u0153name\u0153:\u0153response\u0153,\u0153output_types\u0153:[\u0153Message\u0153]}-Pass-14b12b33-fb01-4cec-9708-a2ebebd0e67e{\u0153fieldName\u0153:\u0153input_message\u0153,\u0153id\u0153:\u0153Pass-14b12b33-fb01-4cec-9708-a2ebebd0e67e\u0153,\u0153inputTypes\u0153:[\u0153Message\u0153],\u0153type\u0153:\u0153str\u0153}",
-        "selected": false,
-        "source": "Agent-1b4dc083-26de-4bda-a5c9-ea4b35bf2e71",
-        "sourceHandle": "{\u0153dataType\u0153:\u0153Agent\u0153,\u0153id\u0153:\u0153Agent-1b4dc083-26de-4bda-a5c9-ea4b35bf2e71\u0153,\u0153name\u0153:\u0153response\u0153,\u0153output_types\u0153:[\u0153Message\u0153]}",
-        "target": "Pass-14b12b33-fb01-4cec-9708-a2ebebd0e67e",
-        "targetHandle": "{\u0153fieldName\u0153:\u0153input_message\u0153,\u0153id\u0153:\u0153Pass-14b12b33-fb01-4cec-9708-a2ebebd0e67e\u0153,\u0153inputTypes\u0153:[\u0153Message\u0153],\u0153type\u0153:\u0153str\u0153}",
-        "label": "explicit approval only"
-      },
-      {
-        "animated": false,
-        "className": "",
-        "data": {
-          "sourceHandle": {
-            "dataType": "Pass",
-            "id": "Pass-14b12b33-fb01-4cec-9708-a2ebebd0e67e",
-            "name": "output_message",
-            "output_types": [
-              "Message"
-            ]
-          },
-          "targetHandle": {
-            "fieldName": "input_value",
-            "id": "ChatOutput-aed4248c-c866-4a4f-a878-0172b6f9df2a",
+            "id": "ChatOutput-287c16db-4d64-406b-bd17-cae4b11189c2",
             "inputTypes": [
               "Data",
               "JSON",
@@ -4325,12 +4139,13 @@
             "type": "other"
           }
         },
-        "id": "reactflow__edge-Pass-14b12b33-fb01-4cec-9708-a2ebebd0e67e{\u0153dataType\u0153:\u0153Pass\u0153,\u0153id\u0153:\u0153Pass-14b12b33-fb01-4cec-9708-a2ebebd0e67e\u0153,\u0153name\u0153:\u0153output_message\u0153,\u0153output_types\u0153:[\u0153Message\u0153]}-ChatOutput-aed4248c-c866-4a4f-a878-0172b6f9df2a{\u0153fieldName\u0153:\u0153input_value\u0153,\u0153id\u0153:\u0153ChatOutput-aed4248c-c866-4a4f-a878-0172b6f9df2a\u0153,\u0153inputTypes\u0153:[\u0153Data\u0153,\u0153JSON\u0153,\u0153DataFrame\u0153,\u0153Table\u0153,\u0153Message\u0153],\u0153type\u0153:\u0153other\u0153}",
+        "id": "reactflow__edge-Agent-f882ba0f-d68d-4a9c-9985-ccb34441c8a0{\u0153dataType\u0153:\u0153Agent\u0153,\u0153id\u0153:\u0153Agent-f882ba0f-d68d-4a9c-9985-ccb34441c8a0\u0153,\u0153name\u0153:\u0153response\u0153,\u0153output_types\u0153:[\u0153Message\u0153]}-ChatOutput-287c16db-4d64-406b-bd17-cae4b11189c2{\u0153fieldName\u0153:\u0153input_value\u0153,\u0153id\u0153:\u0153ChatOutput-287c16db-4d64-406b-bd17-cae4b11189c2\u0153,\u0153inputTypes\u0153:[\u0153Data\u0153,\u0153JSON\u0153,\u0153DataFrame\u0153,\u0153Table\u0153,\u0153Message\u0153],\u0153type\u0153:\u0153other\u0153}",
         "selected": false,
-        "source": "Pass-14b12b33-fb01-4cec-9708-a2ebebd0e67e",
-        "sourceHandle": "{\u0153dataType\u0153:\u0153Pass\u0153,\u0153id\u0153:\u0153Pass-14b12b33-fb01-4cec-9708-a2ebebd0e67e\u0153,\u0153name\u0153:\u0153output_message\u0153,\u0153output_types\u0153:[\u0153Message\u0153]}",
-        "target": "ChatOutput-aed4248c-c866-4a4f-a878-0172b6f9df2a",
-        "targetHandle": "{\u0153fieldName\u0153:\u0153input_value\u0153,\u0153id\u0153:\u0153ChatOutput-aed4248c-c866-4a4f-a878-0172b6f9df2a\u0153,\u0153inputTypes\u0153:[\u0153Data\u0153,\u0153JSON\u0153,\u0153DataFrame\u0153,\u0153Table\u0153,\u0153Message\u0153],\u0153type\u0153:\u0153other\u0153}"
+        "source": "Agent-f882ba0f-d68d-4a9c-9985-ccb34441c8a0",
+        "sourceHandle": "{\u0153dataType\u0153:\u0153Agent\u0153,\u0153id\u0153:\u0153Agent-f882ba0f-d68d-4a9c-9985-ccb34441c8a0\u0153,\u0153name\u0153:\u0153response\u0153,\u0153output_types\u0153:[\u0153Message\u0153]}",
+        "target": "ChatOutput-287c16db-4d64-406b-bd17-cae4b11189c2",
+        "targetHandle": "{\u0153fieldName\u0153:\u0153input_value\u0153,\u0153id\u0153:\u0153ChatOutput-287c16db-4d64-406b-bd17-cae4b11189c2\u0153,\u0153inputTypes\u0153:[\u0153Data\u0153,\u0153JSON\u0153,\u0153DataFrame\u0153,\u0153Table\u0153,\u0153Message\u0153],\u0153type\u0153:\u0153other\u0153}",
+        "label": "Stage 1 response"
       }
     ],
     "viewport": {

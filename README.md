@@ -6,7 +6,7 @@ read-only PostgreSQL support-data layer.
 ## Prerequisites
 
 - Docker with Docker Compose
-- A Google API key for the optional live model check
+- A Google API key for live Agent and Trace validation
 
 ## Start
 
@@ -19,10 +19,10 @@ read-only PostgreSQL support-data layer.
 
    Store the result as `LANGFLOW_SECRET_KEY`. Set separate admin and reader
    database passwords, and URL-encode the reader password in `SUPPORT_DB_URL`.
-2. Start the services:
+2. Build and start the services:
 
    ```bash
-   docker compose up -d
+   docker compose up -d --build
    ```
 
 3. Wait until both services report healthy:
@@ -34,6 +34,7 @@ read-only PostgreSQL support-data layer.
 4. Open <http://localhost:7860> and sign in with the values configured in
    `LANGFLOW_SUPERUSER` and `LANGFLOW_SUPERUSER_PASSWORD`.
 
+The derived Langflow image pins `sqlglot` for deterministic SQL parsing.
 Langflow stores Flows and configuration in its internal SQLite database at
 `/app/langflow/langflow.db` on the `langflow_data` volume. The explicit SQLite
 URL prevents the image from placing its default database outside the mounted
@@ -64,12 +65,29 @@ deleted.
 
 ## Flow Skeleton
 
-Run `python scripts/create_flow_skeleton.py` against the healthy stack. The SQL
-Database component operates as a Tool connected only to `P3 Analysis`; Gmail
-remains a later-stage placeholder.
+Generate the Flow from the running Langflow component catalog:
+
+```bash
+docker compose exec -w /app langflow \
+  /app/.venv/bin/python /app/stage1-scripts/create_flow_skeleton.py
+```
+
+The guarded SQL Database component operates as a Tool connected only to
+`P3 Analysis`. Its only Agent-controlled argument is `query`; SQLGlot validates
+the complete statement before a database connection is opened. Response,
+routing, memory, and Gmail components remain disconnected later-stage
+placeholders.
 
 The Flow stores only the `SUPPORT_DB_URL` variable reference. Secret values must
 never be embedded directly in a Flow export.
+
+Run live lookup and Trace checks with:
+
+```bash
+docker compose exec langflow \
+  /app/.venv/bin/python /app/stage1-scripts/validate_stage1_e2e.py
+sh scripts/validate_stage1_failure.sh
+```
 
 ## Model Validation
 

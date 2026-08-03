@@ -1,25 +1,21 @@
 # Stage 1 Architecture
 
-## Intended Flow
+## Stage 1 Executable Path
 
 ```text
 Chat Input
     down
 P3 Orchestrator
     down
-Structured Output Parser / JSON Operations (Route Parser)
+P3 Analysis <- support_requests_sql Tool
     down
-Conditional If-Else routing
-    |-- Direct response or clarification
-    |-- P3 Analysis -> Support Requests SQL -> Text Template
-    |-- P3 Analysis -> Support Requests SQL -> P3 Response
-    |-- P3 Response -> handoff draft
-    `-- P3 Response -> Support Handoff Gmail after explicit approval
+Chat Output
 ```
 
-The routing is dynamic. A request activates only the Agents and Tools selected
-by the Orchestrator output; the final Flow must not run all three Agents for
-every message. The assignment has exactly three Agents with separate duties:
+Stage 1 deliberately executes only Orchestrator and Analysis. Conditional
+routing, Response, memory, and Gmail nodes remain disconnected placeholders
+because final routing is out of scope. The final assignment has three Agents
+with separate duties:
 
 | Component | Name | Responsibility |
 | --- | --- | --- |
@@ -31,7 +27,7 @@ every message. The assignment has exactly three Agents with separate duties:
 | Routing parser | `Route Parser` | Validate and expose structured Orchestrator output. |
 | Session memory | `Conversation Memory` | Current-session messages only. |
 
-## Routing Matrix
+## Later Routing Matrix
 
 | Request type | Components |
 | --- | --- |
@@ -44,6 +40,16 @@ every message. The assignment has exactly three Agents with separate duties:
 
 Stage 1 implements the SQL behavior and Analysis schema policy. Final routing,
 Gmail authorization, and remaining production prompts belong to later stages.
+
+## SQL Enforcement
+
+The `support_reader` PostgreSQL role provides the database write boundary. The
+guarded SQL Tool additionally parses every statement with pinned SQLGlot before
+opening a connection. It accepts one explicit-column `SELECT` against only
+`public.support_requests`, rejects subqueries/CTEs/set operations/functions
+outside the aggregate allowlist, and requires `LIMIT 1..50` for record queries.
+Only `query` is exposed to the Agent. Database URL and error-control settings
+are not Tool arguments.
 
 ## Shared Context Boundary
 
