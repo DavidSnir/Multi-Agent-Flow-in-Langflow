@@ -36,7 +36,10 @@ run returned `playground-ok`, and the run metadata reported
 - Flow name: `jeen-part3-multi-agent-v01`
 - Agent count: exactly three
 - Required named placeholders: present
-- Conditional branch node and branch edges: present
+- Cascaded If-Else nodes use native `true_result` and `false_result` ports
+- Every edge contains source/target handles and component-port metadata
+- Orchestrator model and structured output schema: configured in the Flow
+- Server-side validation passed, and a direct-route `Hello` run returned successfully
 - SQL and Gmail implementations: not started
 - Support database tables: none
 - Populated password fields in export: none

@@ -12,7 +12,14 @@ schema, SQL/Gmail tools, production Agent prompts, or final routing conditions.
 ## Start
 
 1. Copy `.env.example` to `.env` and set strong local values. `.env` is ignored
-   by Git.
+   by Git. Generate the required Fernet key with:
+
+   ```bash
+   python -c "from cryptography.fernet import Fernet; print(Fernet.generate_key().decode())"
+   ```
+
+   Store the result as `LANGFLOW_SECRET_KEY`. Gmail OAuth values are exposed to
+   Langflow for later stages but may remain empty during Stage 0.
 2. Start the services:
 
    ```bash
@@ -59,8 +66,8 @@ deleted.
 ## Flow Skeleton
 
 Import `flows/jeen-part3-flow-skeleton-v01-2026-08-03.json` through Langflow's
-Import menu. The skeleton is planning scaffolding: tool nodes and routing
-branches are visible but are not Stage 1 implementations.
+Import menu. The skeleton uses native component-port edges and cascaded If-Else
+nodes. Its SQL and Gmail nodes remain non-functional Stage 1 placeholders.
 
 Environment variables are exposed to the Langflow process so they can later be
 registered as Global Variables or Credentials. Secret values must never be
