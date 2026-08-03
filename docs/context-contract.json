@@ -1,0 +1,27 @@
+{
+  "session_id": "",
+  "original_user_message": "",
+  "intent": "",
+  "route": "",
+  "customer_identifiers": {
+    "request_id": null,
+    "email": null,
+    "full_name": null
+  },
+  "required_context": [],
+  "missing_information": [],
+  "selected_record": null,
+  "classification": null,
+  "urgency": null,
+  "urgency_score": null,
+  "matched_records": [],
+  "recommended_action": null,
+  "human_handoff_recommended": false,
+  "draft_email": null,
+  "approval_status": "not_requested",
+  "tool_status": {
+    "sql": "not_called",
+    "gmail": "not_called"
+  },
+  "safe_error": null
+}
