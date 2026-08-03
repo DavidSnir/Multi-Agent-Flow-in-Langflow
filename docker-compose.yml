@@ -17,11 +17,29 @@ services:
       - jeen_part3
     restart: unless-stopped
 
-  langflow:
-    image: langflowai/langflow:1.11.1
+  support-db-init:
+    image: postgres:16-alpine
     depends_on:
       postgres:
         condition: service_healthy
+    environment:
+      PGHOST: postgres
+      PGDATABASE: support_db
+      PGUSER: support_admin
+      PGPASSWORD: ${SUPPORT_DB_ADMIN_PASSWORD:?Set SUPPORT_DB_ADMIN_PASSWORD in .env}
+      SUPPORT_DB_READER_PASSWORD: ${SUPPORT_DB_READER_PASSWORD:?Set SUPPORT_DB_READER_PASSWORD in .env}
+    volumes:
+      - ./postgres/init:/init:ro
+    command: ["sh", "/init/10-support-db.sh"]
+    networks:
+      - jeen_part3
+    restart: "no"
+
+  langflow:
+    image: langflowai/langflow:1.11.1
+    depends_on:
+      support-db-init:
+        condition: service_completed_successfully
     ports:
       - "7860:7860"
     environment:

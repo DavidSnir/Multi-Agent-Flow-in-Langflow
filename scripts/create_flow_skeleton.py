@@ -8,12 +8,19 @@ import uuid
 from pathlib import Path
 
 
-BASE_URL = "http://localhost:7860"
+BASE_URL = os.environ.get("LANGFLOW_BASE_URL", "http://localhost:7860")
 FLOW_NAME = "jeen-part3-multi-agent-v01"
 EXPORT_PATH = Path("flows/jeen-part3-flow-skeleton-v01-2026-08-03.json")
 PROJECT_PATH = Path("projects/jeen-part3-multi-agent-v01.json")
 MODEL_NAME = "gemini-3.1-flash-lite"
 MODEL_CONFIG = [{"name": MODEL_NAME, "icon": "GoogleGenerativeAI", "provider": "Google Generative AI"}]
+ANALYSIS_PROMPT = """You are the Analysis Agent. Use the support_requests_sql tool only when support-request data is required.
+
+Available schema: support_requests(id integer primary key, customer_name varchar(100), email varchar(255), category varchar(100), priority varchar(50), status varchar(50), created_at timestamp). id is the support request identifier; customer_name is the customer's full name; email is the customer's email; category describes the issue; priority is the stored business priority; status is the current request status; created_at is the creation timestamp.
+
+Database access is read-only. Each tool invocation must contain exactly one SELECT statement against support_requests only. Select only fields needed for the current request. Never use SELECT *, UNION, CTEs, system tables, database/system information functions, unnecessary subqueries, or any write/schema/permission statement. Non-aggregate record queries must include LIMIT 50 or less. Use WHERE for supplied identifiers, and require both id and email when verifying a customer's request. Never broaden a lookup or disclose partial/other-customer data when they do not match.
+
+Return a normalized result with succeeded, records_found, failure_category, handoff_recommended, safe_explanation, and only the requested record fields. Empty results are not errors. On tool failure, do not return raw SQL/driver errors, stack traces, credentials, host details, connection details, or tool logs; return a general actionable safe_explanation and recommend handoff only when appropriate. Never expose database credentials or internal connection details."""
 ORCHESTRATOR_SCHEMA = [
     {"name": "intent", "description": "Classified user intent", "type": "str", "multiple": False},
     {"name": "route", "description": "One of direct_response, analysis, human_handoff, or clarification", "type": "str", "multiple": False},
@@ -67,6 +74,13 @@ def node(component, component_type, name, x, y):
 
 def set_value(component, field, value):
     component["data"]["node"]["template"][field]["value"] = value
+
+
+def catalog_component(catalog, component_name):
+    for category in catalog.values():
+        if isinstance(category, dict) and component_name in category:
+            return category[component_name]
+    raise KeyError(f"Langflow catalog does not contain {component_name}")
 
 
 def handle(value):
@@ -125,7 +139,7 @@ def main():
     analysis_router = node(catalog["flow_controls"]["ConditionalRouter"], "ConditionalRouter", "Analysis Required?", 1200, 400)
     analysis = node(catalog["models_and_agents"]["Agent"], "Agent", "P3 Analysis", 1500, 100)
     response = node(catalog["models_and_agents"]["Agent"], "Agent", "P3 Response", 1800, 400)
-    sql = node(catalog["flow_controls"]["Pass"], "Pass", "Support Requests SQL", 1800, 50)
+    sql = node(catalog_component(catalog, "SQLComponent"), "SQLComponent", "support_requests_sql", 1800, 50)
     gmail = node(catalog["flow_controls"]["Pass"], "Pass", "Support Handoff Gmail", 2100, 550)
     memory = node(catalog["models_and_agents"]["Memory"], "Memory", "Conversation Memory", 300, 600)
     chat_output = node(catalog["input_output"]["ChatOutput"], "ChatOutput", "Chat Output", 2400, 300)
@@ -136,6 +150,11 @@ def main():
             set_value(agent, "temperature", temperature)
     set_value(orchestrator, "output_schema", ORCHESTRATOR_SCHEMA)
     set_value(orchestrator, "system_prompt", "Classify the request and return only the configured structured routing fields. Use direct_response or clarification when no downstream agent is needed; otherwise use analysis or human_handoff.")
+    set_value(analysis, "system_prompt", ANALYSIS_PROMPT)
+    set_value(sql, "database_url", "SUPPORT_DB_URL")
+    sql["data"]["node"]["template"]["database_url"]["load_from_db"] = True
+    set_value(sql, "include_columns", True)
+    set_value(sql, "add_error", False)
     set_value(direct_router, "operator", "regex")
     set_value(direct_router, "match_text", r'"route"\s*:\s*"(direct_response|clarification)"')
     set_value(analysis_router, "operator", "regex")
@@ -150,14 +169,14 @@ def main():
         edge(direct_router, "false_result", analysis_router, "input_text", "downstream route"),
         edge(analysis_router, "true_result", analysis, "input_value", "analysis"),
         edge(analysis_router, "false_result", response, "input_value", "response / handoff"),
-        edge(analysis, "response", sql, "input_message", "SQL when needed"),
-        edge(sql, "output_message", response, "input_value", "complex response"),
+        edge(sql, "run_sql_query", analysis, "tools", "Analysis tool only"),
+        edge(analysis, "response", response, "input_value", "complex response"),
         edge(response, "response", gmail, "input_message", "explicit approval only"),
         edge(gmail, "output_message", chat_output, "input_value"),
     ]
     payload = {
         "name": FLOW_NAME,
-        "description": "Stage 0 dynamic-routing skeleton; SQL and Gmail are non-functional placeholders.",
+        "description": "Stage 1 flow with read-only support_requests SQL access for P3 Analysis only.",
         "data": {"nodes": nodes, "edges": edges, "viewport": {"x": 0, "y": 0, "zoom": 0.7}},
         "is_component": False,
     }

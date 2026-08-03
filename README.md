@@ -1,8 +1,7 @@
 # Jeen Part 3: Multi-Agent Flow
 
-Stage 0 establishes a reproducible Langflow 1.11.1 environment and an initial,
-dynamic-routing Flow skeleton. It intentionally does not implement the support
-schema, SQL/Gmail tools, production Agent prompts, or final routing conditions.
+Stage 1 establishes a reproducible Langflow 1.11.1 environment with a separate,
+read-only PostgreSQL support-data layer.
 
 ## Prerequisites
 
@@ -18,8 +17,8 @@ schema, SQL/Gmail tools, production Agent prompts, or final routing conditions.
    python -c "from cryptography.fernet import Fernet; print(Fernet.generate_key().decode())"
    ```
 
-   Store the result as `LANGFLOW_SECRET_KEY`. Gmail OAuth values are exposed to
-   Langflow for later stages but may remain empty during Stage 0.
+   Store the result as `LANGFLOW_SECRET_KEY`. Set separate admin and reader
+   database passwords, and URL-encode the reader password in `SUPPORT_DB_URL`.
 2. Start the services:
 
    ```bash
@@ -46,10 +45,10 @@ is not Langflow's application database.
 The Langflow container checks `http://localhost:7860/api/v1/version`. PostgreSQL
 uses `pg_isready` against `support_db`.
 
-Check PostgreSQL without creating Stage 1 objects:
+Validate the schema, fixtures, matching and empty lookups, and denied writes:
 
 ```bash
-docker compose exec postgres psql -U support_admin -d support_db -c "select current_database();"
+sh scripts/validate_stage1.sh
 ```
 
 Check persistence by noting the Flow in the UI, restarting only Langflow, and
@@ -65,13 +64,12 @@ deleted.
 
 ## Flow Skeleton
 
-Import `flows/jeen-part3-flow-skeleton-v01-2026-08-03.json` through Langflow's
-Import menu. The skeleton uses native component-port edges and cascaded If-Else
-nodes. Its SQL and Gmail nodes remain non-functional Stage 1 placeholders.
+Run `python scripts/create_flow_skeleton.py` against the healthy stack. The SQL
+Database component operates as a Tool connected only to `P3 Analysis`; Gmail
+remains a later-stage placeholder.
 
-Environment variables are exposed to the Langflow process so they can later be
-registered as Global Variables or Credentials. Secret values must never be
-embedded directly in a Flow export.
+The Flow stores only the `SUPPORT_DB_URL` variable reference. Secret values must
+never be embedded directly in a Flow export.
 
 ## Model Validation
 

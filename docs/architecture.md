@@ -1,4 +1,4 @@
-# Stage 0 Architecture
+# Stage 1 Architecture
 
 ## Intended Flow
 
@@ -26,7 +26,7 @@ every message. The assignment has exactly three Agents with separate duties:
 | Orchestrator Agent | `P3 Orchestrator` | Classify intent and select route, Agents, Tools, and required context. Never generate SQL, return database results, or write final email content. |
 | Analysis Agent | `P3 Analysis` | Resolve support-data questions and decide whether SQL is needed. Receives only relevant request context. |
 | Response Agent | `P3 Response` | Produce user-facing complex responses or handoff drafts and invoke Gmail only after explicit approval. |
-| SQL Tool | `Support Requests SQL` | Stage 1 placeholder for restricted support-data access. |
+| SQL Tool | `support_requests_sql` | Read-only, restricted support-data access available only to P3 Analysis. |
 | Gmail Tool | `Support Handoff Gmail` | Later sends an approved handoff draft. |
 | Routing parser | `Route Parser` | Validate and expose structured Orchestrator output. |
 | Session memory | `Conversation Memory` | Current-session messages only. |
@@ -42,8 +42,8 @@ every message. The assignment has exactly three Agents with separate duties:
 | Prepare human handoff | Orchestrator -> Analysis when needed -> Response |
 | Approve an existing draft | Orchestrator -> Response -> Gmail |
 
-Stage 0 provides branch placeholders only. Conditions, SQL behavior, Gmail
-authorization, and production prompts belong to later stages.
+Stage 1 implements the SQL behavior and Analysis schema policy. Final routing,
+Gmail authorization, and remaining production prompts belong to later stages.
 
 ## Shared Context Boundary
 
@@ -67,6 +67,6 @@ Errors crossing component boundaries must be reduced to a safe summary in
 
 Langflow uses its internal SQLite database persisted in the `langflow_data`
 Docker volume. The separate `support_db` PostgreSQL service is reserved for
-business data beginning in Stage 1. Environment values can be imported into
-Langflow Global Variables or Credentials, but their resolved values must not be
-stored in exported Flow JSON.
+business data. The SQL Tool resolves the `SUPPORT_DB_URL` environment-variable
+reference at runtime; its resolved value must not be stored in exported Flow
+JSON.
