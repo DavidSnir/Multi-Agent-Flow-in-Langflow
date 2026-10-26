@@ -1,0 +1,81 @@
+services:
+  postgres:
+    image: postgres:16.10-trixie
+    environment:
+      POSTGRES_USER: ${POSTGRES_ADMIN_USER:?Set POSTGRES_ADMIN_USER in .env}
+      POSTGRES_PASSWORD: ${POSTGRES_ADMIN_PASSWORD:?Set POSTGRES_ADMIN_PASSWORD in .env}
+      POSTGRES_DB: postgres
+      LANGFLOW_DB_NAME: ${LANGFLOW_DB_NAME:?Set LANGFLOW_DB_NAME in .env}
+      LANGFLOW_DB_USER: ${LANGFLOW_DB_USER:?Set LANGFLOW_DB_USER in .env}
+      LANGFLOW_DB_PASSWORD: ${LANGFLOW_DB_PASSWORD:?Set LANGFLOW_DB_PASSWORD in .env}
+      SUPPORT_DB_NAME: ${SUPPORT_DB_NAME:?Set SUPPORT_DB_NAME in .env}
+      SUPPORT_DB_USER: ${SUPPORT_DB_USER:?Set SUPPORT_DB_USER in .env}
+      SUPPORT_DB_PASSWORD: ${SUPPORT_DB_PASSWORD:?Set SUPPORT_DB_PASSWORD in .env}
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U $${POSTGRES_USER} -d $${POSTGRES_DB}"]
+      interval: 5s
+      timeout: 5s
+      retries: 12
+      start_period: 10s
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+      - ./database/init:/docker-entrypoint-initdb.d:ro
+    networks:
+      - backend
+    restart: unless-stopped
+
+  langflow:
+    image: langflowai/langflow:1.11.1
+    depends_on:
+      postgres:
+        condition: service_healthy
+    environment:
+      LANGFLOW_DATABASE_URL: ${LANGFLOW_DATABASE_URL:?Set LANGFLOW_DATABASE_URL in .env}
+      LANGFLOW_CONFIG_DIR: ${LANGFLOW_CONFIG_DIR:?Set LANGFLOW_CONFIG_DIR in .env}
+      LANGFLOW_AUTO_LOGIN: "false"
+      LANGFLOW_SUPERUSER: ${LANGFLOW_SUPERUSER:?Set LANGFLOW_SUPERUSER in .env}
+      LANGFLOW_SUPERUSER_PASSWORD: ${LANGFLOW_SUPERUSER_PASSWORD:?Set LANGFLOW_SUPERUSER_PASSWORD in .env}
+      LANGFLOW_SECRET_KEY: ${LANGFLOW_SECRET_KEY:?Set LANGFLOW_SECRET_KEY in .env}
+      LANGFLOW_VARIABLES_TO_GET_FROM_ENVIRONMENT: SUPPORT_DATABASE_URL,GEMINI_API_KEY,GOOGLE_API_KEY,COMPOSIO_API_KEY
+      LANGFLOW_SSRF_ALLOWED_HOSTS: postgres
+      SUPPORT_DATABASE_URL: ${SUPPORT_DATABASE_URL:?Set SUPPORT_DATABASE_URL in .env}
+      GEMINI_API_KEY: ${GEMINI_API_KEY:?Set GEMINI_API_KEY in .env}
+      GOOGLE_API_KEY: ${GEMINI_API_KEY:?Set GEMINI_API_KEY in .env}
+      COMPOSIO_API_KEY: ${COMPOSIO_API_KEY:?Set COMPOSIO_API_KEY in .env}
+    healthcheck:
+      test: ["CMD", "curl", "--fail", "--silent", "http://localhost:7860/health_check"]
+      interval: 10s
+      timeout: 5s
+      retries: 30
+      start_period: 60s
+    ports:
+      - "17860:7860"
+    volumes:
+      - langflow_data:/app/langflow
+      - ./scripts:/app/project-scripts:ro
+    networks:
+      - backend
+      - outbound
+    restart: unless-stopped
+
+  relay:
+    build: ./web
+    depends_on:
+      langflow:
+        condition: service_healthy
+    environment:
+      LANGFLOW_URL: http://langflow:7860
+    ports:
+      - "127.0.0.1:8080:8080"
+    networks:
+      - outbound
+    restart: unless-stopped
+
+networks:
+  backend:
+    internal: true
+  outbound:
+
+volumes:
+  postgres_data:
+  langflow_data:

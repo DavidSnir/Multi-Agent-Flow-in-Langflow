@@ -1,0 +1,15 @@
+{
+  "purpose": "Current source snapshot before machine reset; original Git histories, ignored data, and withheld files are in the external-drive archive.",
+  "source": "/Users/davidsnir/Jeen/Multi Agent Flow in Langflow",
+  "nested_repositories_flattened": [
+    {
+      "path": ".",
+      "branch": "main",
+      "head": null,
+      "refs": [],
+      "stash_commits": []
+    }
+  ],
+  "withheld_from_github": [],
+  "created": "2026-10-26T14:09:04+02:00"
+}

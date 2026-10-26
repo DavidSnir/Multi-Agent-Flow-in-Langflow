@@ -1,0 +1,85 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <meta name="description" content="A focused HTTP client for a Langflow agent." />
+    <title>Relay | Langflow Agent Console</title>
+    <link rel="stylesheet" href="/styles.css" />
+    <script src="/app.js" defer></script>
+  </head>
+  <body>
+    <div class="grain" aria-hidden="true"></div>
+    <main class="shell">
+      <header class="topbar">
+        <a class="brand" href="/" aria-label="Relay home">
+          <span class="brand-mark">R</span>
+          <span>RELAY</span>
+        </a>
+        <div class="status" id="connectionStatus">
+          <span class="status-dot"></span>
+          <span>Ready to connect</span>
+        </div>
+      </header>
+
+      <section class="workspace">
+        <aside class="intro">
+          <p class="eyebrow">LANGFLOW / HTTP POST</p>
+          <h1>Your agent,<br /><em>on the line.</em></h1>
+          <p class="lede">A direct channel to any Langflow flow. Configure the connection, send a prompt, and inspect the response.</p>
+
+          <form class="connection" id="connectionForm">
+            <div class="section-label"><span>01</span> Connection</div>
+            <label>
+              Flow ID
+              <input id="flowId" name="flowId" type="text" placeholder="xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx" autocomplete="off" required />
+            </label>
+            <label>
+              API key <span class="optional">optional</span>
+              <input id="apiKey" name="apiKey" type="password" placeholder="Paste Langflow API key" autocomplete="off" />
+            </label>
+            <button class="save-button" type="submit">Save connection <span>↗</span></button>
+          </form>
+
+          <p class="privacy">Connection details stay in this browser. The API key is sent only with requests to your local proxy.</p>
+        </aside>
+
+        <section class="console" aria-label="Agent conversation">
+          <div class="console-header">
+            <div>
+              <p class="section-label"><span>02</span> Agent console</p>
+              <h2>Conversation</h2>
+            </div>
+            <div class="console-actions">
+              <label class="output-toggle">
+                <input id="fullOutput" type="checkbox" />
+                <span class="toggle-track" aria-hidden="true"><span></span></span>
+                <span>Full output</span>
+              </label>
+              <button class="clear-button" id="clearChat" type="button">Clear thread</button>
+            </div>
+          </div>
+
+          <div class="messages" id="messages" aria-live="polite">
+            <article class="message agent welcome">
+              <div class="message-meta"><span>AGENT</span><time>NOW</time></div>
+              <p>Channel open. Add your Flow ID, then send a message to begin.</p>
+            </article>
+          </div>
+
+          <form class="composer" id="chatForm">
+            <label class="sr-only" for="messageInput">Message your agent</label>
+            <textarea id="messageInput" rows="1" placeholder="Message your agent..." required></textarea>
+            <div class="composer-footer">
+              <span><kbd>⌘</kbd> + <kbd>Enter</kbd> to send</span>
+              <button id="sendButton" type="submit" aria-label="Send message">
+                <span>Send</span>
+                <svg viewBox="0 0 24 24" aria-hidden="true"><path d="m5 12 14-7-5 14-2.3-4.7L5 12Zm6.7 2.3L19 5" /></svg>
+              </button>
+            </div>
+          </form>
+        </section>
+      </section>
+    </main>
+  </body>
+</html>

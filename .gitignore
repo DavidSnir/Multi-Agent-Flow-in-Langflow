@@ -1,0 +1,11 @@
+.env
+*.log
+__pycache__/
+.pytest_cache/
+.venv/
+runtime-data/*
+!runtime-data/.gitkeep
+credentials.json
+token.json
+*.pem
+*.key
